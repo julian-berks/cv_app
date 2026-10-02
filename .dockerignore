@@ -1,0 +1,27 @@
+# Version control
+.git/
+.gitignore
+.dockerignore
+
+# Build and deploy files not needed at runtime
+Dockerfile
+push
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
