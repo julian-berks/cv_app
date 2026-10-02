@@ -6,6 +6,7 @@
 # Build and deploy files not needed at runtime
 Dockerfile
 push
+README.md
 
 # Python
 __pycache__/
