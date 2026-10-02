@@ -1,5 +1,5 @@
-docker build --platform linux/amd64 --provenance=false -t cv-app .
-docker tag cv-app:latest 594542138399.dkr.ecr.eu-west-2.amazonaws.com/cv-app:latest
-docker push 594542138399.dkr.ecr.eu-west-2.amazonaws.com/cv-app:latest
+docker build --platform linux/amd64 --provenance=false -t julian-cv-ecr .
+docker tag julian-cv-ecr:latest 594542138399.dkr.ecr.eu-west-2.amazonaws.com/julian-cv-ecr:latest
+docker push 594542138399.dkr.ecr.eu-west-2.amazonaws.com/julian-cv-ecr:latest
 
 
