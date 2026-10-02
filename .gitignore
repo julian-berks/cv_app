@@ -16,3 +16,9 @@ env/
 .vscode/
 .idea/
 .DS_Store
+
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
