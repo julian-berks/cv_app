@@ -189,7 +189,7 @@ resource "aws_lambda_function" "this" {
 
 
 resource "aws_lambda_function_url" "example" {
-  count = var.create_function_url ? 1 : 0
+  count              = var.create_function_url ? 1 : 0
   function_name      = aws_lambda_function.this.function_name
-  authorization_type = "NONE"
+  authorization_type = "AWS_IAM"
 }

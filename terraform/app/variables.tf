@@ -5,10 +5,9 @@ variable "name" {
    description = "Name of the CV application"
 }
 
-
 variable "container_deployed" {
    type = bool
-   default = false
+   default = true
    description = "Flag to indicate if the container has been deployed"
 }     
 
@@ -24,9 +23,15 @@ variable "region" {
    description = "AWS region for the resources"
 }  
 
+variable "model_id" {
+   type = string
+   default = "amazon.nova-micro-v1:0"
+   description = "ID of the model to use"
+}
 
-##variable "image_uri" {
-#   type = string
-#   description = "URI of the container image to deploy"
-#   default = "594542138399.dkr.ecr.eu-west-2.amazonaws.com/julian-cv-ecr:latest"
-#}  
+
+variable "domain_name" {
+   type = string
+   default = "cv.julianberks.com"
+   description = "Domain name for the application"
+}

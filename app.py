@@ -12,10 +12,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
-KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "WVOCVIUTT0")
+KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID")
 # Change region prefix (us./eu.) if using an inference profile.
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-micro-v1:0")
 STATIC_DIR = Path(__file__).parent / "static"
+DOCS_DIR = Path(__file__).parent / "docs"
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -58,6 +59,11 @@ def answer_question(question: str) -> str:
 @app.get("/")
 async def root():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/architecture.md")
+async def architecture():
+    return FileResponse(DOCS_DIR / "architecture.md", media_type="text/markdown")
 
 
 @app.post("/ask")

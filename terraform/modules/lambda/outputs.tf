@@ -13,6 +13,11 @@ output "invoke_arn" {
   value       = aws_lambda_function.this.invoke_arn
 }
 
+output "function_url" {
+  description = "Lambda function URL, when enabled."
+  value       = try(aws_lambda_function_url.example[0].function_url, null)
+}
+
 output "role_arn" {
   description = "Execution role ARN."
   value       = aws_iam_role.this.arn

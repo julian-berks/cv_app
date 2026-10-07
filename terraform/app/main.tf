@@ -1,3 +1,5 @@
+data "aws_region" "current" {}
+
 module "ecr" {
   source          = "../modules/ecr"
   name            = "${var.name}"
@@ -26,29 +28,40 @@ module "function" {
   memory_size                       = 512
   cloudwatch_logs_retention_in_days = 7
   bedrock_resources                  = [
-				"arn:aws:bedrock:eu-west-2::foundation-model/amazon.nova-micro-v1:0",
-				"arn:aws:bedrock:eu-west-2:594542138399:knowledge-base/WVOCVIUTT0"
+				"arn:aws:bedrock:${data.aws_region.current.region}::foundation-model/${var.model_id}",
+				"arn:aws:bedrock:${data.aws_region.current.region}:594542138399:knowledge-base/${module.knowledge_base.knowledge_base_id}"
 			]
+
+  environment = {
+    KNOWLEDGE_BASE_ID       = module.knowledge_base.knowledge_base_id
+    MODEL_ID                = var.model_id
+  }
   create_function_url                 = true
   #create_lambda_sg_group = true
   #vpc_id                 = var.vpc_id
   #vpc_cidr_block         = var.vpc_cidr_block
   #subnet_ids             = var.subnet_ids
 
-  enable_dynamodb_access = true
+  #enable_dynamodb_access = true
   #dynamodb_table_arns = concat(
    # var.controls_table_arns,
     #[var.current_status_table_arn, var.history_table_arn],
   #)
   enable_s3_lambda_access = false
-  #s3_bucket_name_list     = [var.payloads_bucket_name]
 
-  environment = {}
 
   tags       = var.tags
   dependency = "dummy"
 
-  # Ensure the dummy :latest image is pushed before the function is created
-  # (image_uri does not reference it, so an explicit dependency is required).
-  #depends_on = [module.dummy_image]
+
 }
+
+  module "knowledge_base" {
+    source = "../modules/knowledge-base"
+    knowledge_base_name = "${var.name}_kb"
+    rag_bucket_name     = "594542138399-rag-bucket"
+    filepath            = "*"
+  }
+
+
+
