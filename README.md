@@ -1,15 +1,16 @@
 # CV App
 
-A chat web page for asking questions about Julian's CV. Answers come from an Amazon Bedrock Knowledge Base and model. The app is a FastAPI service running in a Docker container on AWS Lambda, served at `https://cv.julianberks.com` through CloudFront.
+A web page about Julian's CV. It has a home page, a chat tool for asking questions about the CV, and an About page that shows the project's architecture documentation. Answers come from an Amazon Bedrock Knowledge Base and model. The app is a FastAPI service running in a Docker container on AWS Lambda, served at `https://cv.julianberks.com` through CloudFront.
 
 See [docs/architecture.md](docs/architecture.md) for the AWS architecture diagram and a full component breakdown.
 
 ## How it works
 
-1. The browser loads the Vue 3 chat page from `/`.
-2. Each question is sent to `POST /ask`.
+1. The browser loads the Vue 3 page from `/`. It opens on the home page, and a menu switches between **Home**, **Ask about my CV** and **About this project**.
+2. In the chat view, each question is sent to `POST /ask`.
 3. The backend retrieves matching CV content from the Bedrock Knowledge Base.
 4. A Bedrock model answers using only that content, and the answer appears in the chat.
+5. The About page fetches `/architecture.md` and renders it in the browser, including the diagrams.
 
 Each question is answered on its own; earlier messages in the chat aren't sent to the model.
 
@@ -18,15 +19,15 @@ Each question is answered on its own; earlier messages in the chat aren't sent t
 | File | Purpose |
 | --- | --- |
 | `app.py` | FastAPI app, Bedrock calls and the Lambda handler (via Mangum) |
-| `static/index.html` | Chat page layout and styles |
-| `static/app.js` | Vue 3 app that sends questions and shows answers |
+| `static/index.html` | Page layout and styles, the menu, home text, chat view and About view |
+| `static/app.js` | Vue 3 app that switches views, sends questions, shows answers and renders the About page |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | Lambda container image based on `public.ecr.aws/lambda/python:3.12` |
 | `push` | Builds the image and pushes it to ECR |
 | `terraform/` | Infrastructure: ECR, Lambda, Bedrock Knowledge Base, CloudFront, ACM and WAF |
 | `docs/architecture.md` | Architecture diagram and component documentation |
 
-Vue 3 is loaded from the unpkg CDN, so there's no front-end build step.
+Vue 3 is loaded from the unpkg CDN, so there's no front-end build step. The About page also loads `marked`, `DOMPurify` and `mermaid` from unpkg, only when it's first opened, so it needs internet access.
 
 ## Routes
 
@@ -39,6 +40,16 @@ Vue 3 is loaded from the unpkg CDN, so there's no front-end build step.
 | `GET` | `/static/*` | Page assets |
 
 `/ask` rejects blank questions and questions over 1000 characters with a `422`, and returns a `502` if Bedrock fails.
+
+Through CloudFront, POST requests must include an `x-amz-content-sha256` header containing the SHA-256 hex digest of the request body, otherwise CloudFront returns a `403`. The page does this automatically. From the command line:
+
+```sh
+body='{"question":"Hello"}'
+curl -X POST https://cv.julianberks.com/ask \
+  -H 'Content-Type: application/json' \
+  -H "x-amz-content-sha256: $(printf '%s' "$body" | shasum -a 256 | cut -d' ' -f1)" \
+  -d "$body"
+```
 
 ## Configuration
 
@@ -96,6 +107,6 @@ Then point the Lambda function at the new image:
 aws lambda update-function-code --function-name julian-cv-lambda-function --image-uri 594542138399.dkr.ecr.eu-west-2.amazonaws.com/julian-cv-ecr:latest
 ```
 
-Terraform ignores changes to the function's image, so code releases don't need a Terraform apply.
+Terraform ignores changes to the function's image, so code releases don't need a Terraform apply. The image also contains `docs/architecture.md`, so documentation changes need a new image too.
 
 The page uses relative paths, so it works at the root of the CloudFront domain. If you serve it under a path prefix, open the URL with a trailing slash.

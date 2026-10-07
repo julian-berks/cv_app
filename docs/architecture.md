@@ -161,3 +161,11 @@ flowchart LR
 - The Knowledge Base role can be assumed only by Bedrock from this account, for knowledge bases in `eu-west-2`.
 - WAF rule groups run in count mode, so they report but don't block requests.
 - `/ask` is unauthenticated and each call invokes a Bedrock model, so request volume drives cost.
+
+
+## Further enhancements
+- The compilation of the docker container and deployment is not integrated into the automation. 
+- When a new container is deployed, updating the Lambda to reflect the change is a manual task.
+- The sync of the Bedrock Knowledge base is manual and does not respond to a new CV or other files being added.
+- Deployment of the CV data file is outside the scope of this project.
+- There is no CI-CD pipeline 
