@@ -6,11 +6,28 @@
     <title>Julian's CV</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
+        :root {
+            --ink: #2f3b3b;
+            --muted: #5f6f6f;
+            --accent: #3f6b6b;
+            --accent-soft: #e1ece8;
+            --accent-disabled: #a3bcbc;
+            --gold: #cdbb8a;
+            --paper: #fbfaf6;
+            --sand: #efe9da;
+            --page: #dde6e1;
+            --line: #d6dfda;
+            --rose-bg: #f6e4e1;
+            --rose-ink: #964038;
+        }
         body {
             font-family: Avenir, Helvetica, Arial, sans-serif;
-            background: #f4f5f7;
-            color: #333;
+            background: var(--page);
+            color: var(--ink);
             margin: 0;
+        }
+        a {
+            color: var(--accent);
         }
         #app {
             display: flex;
@@ -19,8 +36,8 @@
             height: 100dvh;
             max-width: 800px;
             margin: 0 auto;
-            background: #fff;
-            box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
+            background: var(--paper);
+            box-shadow: 0 0 16px rgba(47, 59, 59, 0.14);
         }
         header {
             display: flex;
@@ -28,7 +45,9 @@
             justify-content: space-between;
             gap: 16px;
             padding: 16px 20px;
-            border-bottom: 1px solid #e5e7eb;
+            color: #fff;
+            background: linear-gradient(135deg, #3f6b6b, #52796f);
+            border-bottom: 3px solid var(--gold);
         }
         h1 {
             margin: 0;
@@ -41,16 +60,16 @@
         }
         nav button {
             padding: 8px 14px;
-            color: #333;
+            color: rgba(255, 255, 255, 0.88);
             background: none;
             border-radius: 8px;
         }
         nav button:hover {
-            background: #eef0f3;
+            background: rgba(255, 255, 255, 0.14);
         }
         nav button.active {
-            color: #0f62fe;
-            background: #e8f0ff;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.24);
         }
         .home {
             flex: 1;
@@ -59,8 +78,12 @@
             line-height: 1.6;
         }
         .home h2 {
+            display: inline-block;
             margin-top: 0;
+            padding-bottom: 4px;
             font-size: 1.75rem;
+            color: var(--accent);
+            border-bottom: 3px solid var(--gold);
         }
         .home p {
             max-width: 60ch;
@@ -73,12 +96,14 @@
         }
         .about h1 {
             font-size: 1.75rem;
+            color: var(--accent);
         }
         .about h2 {
             margin-top: 2rem;
             padding-bottom: 4px;
             font-size: 1.35rem;
-            border-bottom: 1px solid #e5e7eb;
+            color: var(--accent);
+            border-bottom: 2px solid var(--gold);
         }
         .about h3 {
             font-size: 1.1rem;
@@ -91,23 +116,26 @@
         }
         .about th, .about td {
             padding: 6px 10px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--line);
             text-align: left;
             vertical-align: top;
         }
         .about th {
-            background: #f4f5f7;
+            background: var(--accent-soft);
+        }
+        .about tbody tr:nth-child(even) {
+            background: rgba(239, 233, 218, 0.4);
         }
         .about code {
             padding: 1px 5px;
             font-size: 0.9em;
-            background: #eef0f3;
+            background: var(--sand);
             border-radius: 4px;
         }
         .about pre {
             padding: 12px 14px;
             overflow-x: auto;
-            background: #f4f5f7;
+            background: var(--sand);
             border-radius: 8px;
         }
         .about pre code {
@@ -120,11 +148,11 @@
             text-align: center;
         }
         .about .status {
-            color: #888;
+            color: var(--muted);
             font-style: italic;
         }
         .about .status.error {
-            color: #c62828;
+            color: var(--rose-ink);
             font-style: normal;
         }
         .messages {
@@ -145,50 +173,60 @@
         }
         .message.user {
             align-self: flex-end;
-            background: #0f62fe;
+            background: var(--accent);
             color: #fff;
             border-bottom-right-radius: 4px;
         }
         .message.bot {
             align-self: flex-start;
-            background: #eef0f3;
+            background: var(--sand);
             border-bottom-left-radius: 4px;
         }
         .message.error {
             align-self: flex-start;
-            background: #fdecea;
-            color: #c62828;
+            background: var(--rose-bg);
+            color: var(--rose-ink);
             border-bottom-left-radius: 4px;
         }
         .typing {
-            color: #888;
+            color: var(--muted);
             font-style: italic;
         }
         .composer {
             display: flex;
             gap: 10px;
             padding: 12px 20px;
-            border-top: 1px solid #e5e7eb;
+            background: var(--accent-soft);
+            border-top: 1px solid var(--line);
         }
         textarea {
             flex: 1;
             padding: 10px 14px;
             font: inherit;
-            border: 1px solid #ccc;
+            color: var(--ink);
+            background: #fff;
+            border: 1px solid #b9c9c4;
             border-radius: 20px;
             resize: none;
+        }
+        textarea:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
         }
         button {
             padding: 10px 24px;
             font: inherit;
             color: #fff;
-            background: #0f62fe;
+            background: var(--accent);
             border: none;
             border-radius: 20px;
             cursor: pointer;
         }
+        button:hover:not(:disabled) {
+            background: #345a5a;
+        }
         button:disabled {
-            background: #9bb7f0;
+            background: var(--accent-disabled);
             cursor: not-allowed;
         }
     </style>

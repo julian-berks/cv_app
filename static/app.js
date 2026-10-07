@@ -83,7 +83,19 @@ createApp({
                 this.aboutHtml = renderMarkdown(await res.text());
                 // Mermaid measures the DOM, so diagrams render only once the page is visible.
                 await this.$nextTick();
-                mermaid.initialize({ startOnLoad: false });
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'base',
+                    themeVariables: {
+                        primaryColor: '#e1ece8',
+                        primaryBorderColor: '#3f6b6b',
+                        primaryTextColor: '#2f3b3b',
+                        secondaryColor: '#efe9da',
+                        tertiaryColor: '#f4f1e8',
+                        lineColor: '#5f7f7f',
+                        fontFamily: 'Avenir, Helvetica, Arial, sans-serif'
+                    }
+                });
                 await mermaid.run({ nodes: this.$refs.about.querySelectorAll('.mermaid') });
             } catch (e) {
                 console.error(e);
