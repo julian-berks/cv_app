@@ -43,16 +43,7 @@ data "aws_iam_policy_document" "access" {
     content {
       sid    = "DynamoDBAccess"
       effect = "Allow"
-      actions = [
-        "dynamodb:GetItem",
-        "dynamodb:BatchGetItem",
-        "dynamodb:Query",
-        "dynamodb:Scan",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:BatchWriteItem",
-      ]
+      actions = var.dynamodb_actions
       resources = var.dynamodb_table_arns
     }
   }
@@ -159,6 +150,8 @@ resource "aws_lambda_function" "this" {
   image_uri     = var.image_uri
   timeout       = var.timeout
   memory_size   = var.memory_size
+
+  reserved_concurrent_executions = var.reserved_concurrent_executions
 
   dynamic "environment" {
     for_each = length(var.environment) > 0 ? [1] : []

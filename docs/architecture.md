@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph global["Global / us-east-1"]
         acm["ACM certificate<br/>cv.julianberks.com<br/>(DNS validated)"]
-        waf["AWS WAF web ACL<br/>3 AWS managed rule groups<br/>(count mode)"]
+        waf["AWS WAF web ACL<br/>3 managed rule groups (count mode)<br/>+ per-IP flood limit (block)"]
         cf["CloudFront distribution<br/>HTTPS only, caching disabled"]
         oac["Origin access control<br/>SigV4, type: lambda"]
     end
@@ -33,6 +33,8 @@ flowchart TB
         end
 
         rag[("S3 bucket<br/>CV documents")]
+        questions[("DynamoDB table<br/>questions + timestamps")]
+        ratelimits[("DynamoDB table<br/>per-IP question counters")]
         state[("S3 bucket<br/>Terraform state")]
     end
 
@@ -47,13 +49,15 @@ flowchart TB
     kbrole -.->|assumed by| kb
     role -.->|assumed by| fn
     fn --> logs
+    fn -->|PutItem| questions
+    fn -->|UpdateItem| ratelimits
     ecr -.->|image source| fn
 ```
 
 ## Request flow
 
 1. The browser requests `https://cv.julianberks.com/`. External DNS resolves the name to the CloudFront distribution.
-2. The WAF web ACL evaluates the request. Its managed rule groups are in count mode, so they record matches but don't block.
+2. The WAF web ACL evaluates the request. Its managed rule groups are in count mode, so they record matches but don't block. A rate-based rule blocks any IP address that makes more than 100 requests of any kind in 5 minutes (`waf_requests_per_5_minutes`); blocked requests get a 403 and never reach Lambda. The Free plan only supports plain per-IP limits over 5 minutes, so this is a flood backstop, not the per-question limit.
 3. CloudFront terminates TLS using the ACM certificate and forwards the request to the Lambda function URL. Caching is disabled, so every request reaches Lambda.
 4. CloudFront signs the origin request with SigV4 through the origin access control. The function URL uses `AWS_IAM` authorization, and a Lambda resource policy allows only this distribution to invoke it. Direct calls to the function URL are rejected.
 5. Mangum adapts the Lambda event to ASGI and FastAPI handles it:
@@ -63,7 +67,8 @@ flowchart TB
    1. Calls `bedrock-agent-runtime` `Retrieve` on the Knowledge Base with the question.
    2. Joins the returned text chunks into a context block.
    3. Calls `bedrock-runtime` `Converse` with a prompt that asks the model to answer using only that context.
-7. The answer is returned to the browser and shown in the chat. Each question is independent; no conversation history is sent to the model.
+7. After Bedrock answers, `record_question()` writes the question, a UTC timestamp and the visitor's IP address (the last `X-Forwarded-For` entry, which CloudFront appends) to the DynamoDB questions table. Each item has an `expires_at` time, after which DynamoDB deletes it. If the write fails, the error is logged and the user still gets their answer. Nothing is written when Bedrock fails.
+8. The answer is returned to the browser and shown in the chat. Each question is independent; no conversation history is sent to the model.
 
 ```mermaid
 sequenceDiagram
@@ -72,6 +77,7 @@ sequenceDiagram
     participant L as Lambda (FastAPI)
     participant KB as Bedrock Knowledge Base
     participant M as Bedrock model
+    participant D as DynamoDB questions table
 
     B->>CF: POST /ask {question}
     CF->>L: SigV4-signed request via function URL
@@ -79,6 +85,7 @@ sequenceDiagram
     KB-->>L: Matching CV chunks
     L->>M: Converse(prompt with chunks)
     M-->>L: Answer text
+    L->>D: PutItem(question, asked_at, ip, expires_at)
     L-->>CF: {"answer": "..."}
     CF-->>B: Response
 ```
@@ -90,16 +97,18 @@ sequenceDiagram
 | ACM certificate | TLS certificate for the domain, created in `us-east-1` (required by CloudFront) and validated with a DNS record you create externally | [cloudfront.tf](../terraform/app/cloudfront.tf) |
 | CloudFront distribution | Public HTTPS entry point for the custom domain; uses the managed `CachingDisabled` cache policy and `AllViewerExceptHostHeader` origin request policy | [cloudfront.tf](../terraform/app/cloudfront.tf) |
 | CloudFront origin access control | Signs requests to the Lambda function URL with SigV4 | [cloudfront.tf](../terraform/app/cloudfront.tf) |
-| WAF web ACL | Required by the CloudFront pricing plan; runs the IP reputation, common, and known-bad-inputs AWS managed rule groups in count mode | [cloudfront.tf](../terraform/app/cloudfront.tf) |
+| WAF web ACL | Required by the CloudFront pricing plan; runs the IP reputation, common, and known-bad-inputs AWS managed rule groups in count mode, plus a `RateLimitPerIP` rule that blocks an IP making more than 100 requests in 5 minutes. The Free plan only supports plain per-IP limits over 5 minutes, and rejects rules that match on the method or path, so the 10-questions-per-minute limit lives in the app. The Free plan allows 5 WAF rules in total, and this ACL uses 4 | [cloudfront.tf](../terraform/app/cloudfront.tf) |
 | Lambda permissions | Allow `cloudfront.amazonaws.com` to invoke the function URL, limited to this distribution | [cloudfront.tf](../terraform/app/cloudfront.tf) |
-| Lambda function | Runs the container image; environment variables `KNOWLEDGE_BASE_ID` and `MODEL_ID` | [modules/lambda](../terraform/modules/lambda/main.tf) |
+| Lambda function | Runs the container image; environment variables `KNOWLEDGE_BASE_ID`, `MODEL_ID`, `DYNAMODB_TABLE`, `RETENTION_DAYS`, `ALLOWED_ORIGIN`, `RATE_LIMIT_TABLE` and `RATE_LIMIT_PER_MINUTE`; reserved concurrency limits it to 5 simultaneous executions (`lambda_reserved_concurrency`) | [modules/lambda](../terraform/modules/lambda/main.tf) |
 | Lambda function URL | HTTPS endpoint for the function, with `AWS_IAM` authorization | [modules/lambda](../terraform/modules/lambda/main.tf) |
-| IAM execution role | Basic Lambda logging plus `bedrock:Retrieve` and `bedrock:InvokeModel` on the Knowledge Base and model | [modules/lambda](../terraform/modules/lambda/main.tf) |
+| IAM execution role | Basic Lambda logging, `bedrock:Retrieve` and `bedrock:InvokeModel` on the Knowledge Base and model, `dynamodb:PutItem` on the questions table, and `dynamodb:UpdateItem` on the rate-limit table | [modules/lambda](../terraform/modules/lambda/main.tf) |
 | CloudWatch log group | Function logs, 7-day retention | [modules/lambda](../terraform/modules/lambda/main.tf) |
 | ECR repository | Stores the Lambda container images; scan on push; lifecycle policy keeps the latest 7 | [modules/ecr](../terraform/modules/ecr/main.tf) |
 | Bedrock Knowledge Base | Managed Knowledge Base used for retrieval | [modules/knowledge-base](../terraform/modules/knowledge-base/main.tf) |
 | Bedrock data source | Managed S3 connector that ingests the CV documents with smart parsing | [modules/knowledge-base](../terraform/modules/knowledge-base/main.tf) |
 | Knowledge Base IAM role | Assumed by Bedrock; read access to the RAG bucket, scoped to this account | [modules/knowledge-base](../terraform/modules/knowledge-base/main.tf) |
+| DynamoDB questions table | On-demand table (key `id`) that stores each question with its `asked_at` UTC timestamp and visitor `ip`. A TTL on `expires_at` deletes items after the retention period (30 days by default) | [dynamodb.tf](../terraform/app/dynamodb.tf) |
+| DynamoDB rate-limit table | On-demand table (key `bucket`) holding one counter per IP address per minute, so `/ask` can enforce the limit of 10 questions a minute. A TTL on `expires_at` removes each counter after two minutes | [dynamodb.tf](../terraform/app/dynamodb.tf) |
 | S3 RAG bucket | Holds the CV documents. Referenced by name; not created by this Terraform | [main.tf](../terraform/app/main.tf) |
 | S3 state bucket | Terraform remote state with lockfile locking and encryption. Referenced by name; not created by this Terraform | [backend.tf](../terraform/app/backend.tf) |
 
@@ -121,8 +130,9 @@ sequenceDiagram
 terraform/
   app/                    Root module (state: S3 backend, eu-west-2)
     main.tf               ECR, Lambda, and Knowledge Base module wiring
+    dynamodb.tf           Questions table
     cloudfront.tf         ACM, CloudFront, WAF, OAC, Lambda permissions
-    variables.tf          name, region, domain_name, model_id, container_deployed, tags
+    variables.tf          name, region, domain_name, model_id, question_retention_days, ask_rate_limit_per_minute, waf_requests_per_5_minutes, lambda_reserved_concurrency, container_deployed, tags
     outputs.tf            ACM validation records, CloudFront domain name
   modules/
     ecr/                  Container image repository
@@ -157,10 +167,11 @@ flowchart LR
 ## Security notes
 
 - The function URL is not publicly invokable. Only the CloudFront distribution can call it, through OAC-signed requests.
-- The Lambda role grants Bedrock access only to the specific model and Knowledge Base.
+- The Lambda role grants Bedrock access only to the specific model and Knowledge Base, `PutItem` on the questions table, and `UpdateItem` on the rate-limit counters.
+- The questions table stores what visitors type along with their IP address. Both are personal data, so keep the retention period (`question_retention_days`) as short as you need, tell visitors what's recorded, and don't encourage them to enter sensitive information.
 - The Knowledge Base role can be assumed only by Bedrock from this account, for knowledge bases in `eu-west-2`.
-- WAF rule groups run in count mode, so they report but don't block requests.
-- `/ask` is unauthenticated and each call invokes a Bedrock model, so request volume drives cost.
+- WAF managed rule groups run in count mode, so they report but don't block requests. WAF blocks only an IP making more than 100 requests in 5 minutes. The app limits each IP to 10 questions a minute and returns a 429 with a friendly message; the counter fails open, so a counter outage doesn't stop questions being answered. Visitors sharing one IP address (offices, mobile networks) share these limits.
+- `/ask` is unauthenticated and each call invokes a Bedrock model, so request volume drives cost. Three measures limit abuse: the per-IP limits (the app's 10 questions a minute and WAF's flood limit), an `Origin` and `Sec-Fetch-Site` check in the app (which stops other websites and simple scripts but not someone who sets the headers by hand), and a Lambda concurrency cap that limits how many Bedrock calls run at once.
 
 
 ## Further enhancements

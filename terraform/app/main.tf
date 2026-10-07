@@ -26,6 +26,7 @@ module "function" {
   iam_role_name                     = "${var.name}-default_role"
   timeout                           = 30
   memory_size                       = 512
+  reserved_concurrent_executions    = var.lambda_reserved_concurrency
   cloudwatch_logs_retention_in_days = 7
   bedrock_resources                  = [
 				"arn:aws:bedrock:${data.aws_region.current.region}::foundation-model/${var.model_id}",
@@ -35,6 +36,11 @@ module "function" {
   environment = {
     KNOWLEDGE_BASE_ID       = module.knowledge_base.knowledge_base_id
     MODEL_ID                = var.model_id
+    DYNAMODB_TABLE          = aws_dynamodb_table.questions.name
+    RETENTION_DAYS          = tostring(var.question_retention_days)
+    ALLOWED_ORIGIN          = "https://${var.domain_name}"
+    RATE_LIMIT_TABLE        = aws_dynamodb_table.rate_limits.name
+    RATE_LIMIT_PER_MINUTE   = tostring(var.ask_rate_limit_per_minute)
   }
   create_function_url                 = true
   #create_lambda_sg_group = true
@@ -42,11 +48,8 @@ module "function" {
   #vpc_cidr_block         = var.vpc_cidr_block
   #subnet_ids             = var.subnet_ids
 
-  #enable_dynamodb_access = true
-  #dynamodb_table_arns = concat(
-   # var.controls_table_arns,
-    #[var.current_status_table_arn, var.history_table_arn],
-  #)
+  dynamodb_table_arns = [aws_dynamodb_table.questions.arn, aws_dynamodb_table.rate_limits.arn]
+  dynamodb_actions    = ["dynamodb:PutItem", "dynamodb:UpdateItem"]
   enable_s3_lambda_access = false
 
 

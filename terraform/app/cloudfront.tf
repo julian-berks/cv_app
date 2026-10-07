@@ -33,7 +33,6 @@ resource "aws_cloudfront_origin_access_control" "lambda" {
   signing_protocol                  = "sigv4"
 }
 
-# Originally created by the CloudFront pricing plan; its name cannot change without replacement.
 resource "aws_wafv2_web_acl" "cloudfront" {
   provider = aws.us_east_1
   name     = "${var.name}-CloudFront-WAF"
@@ -77,6 +76,30 @@ resource "aws_wafv2_web_acl" "cloudfront" {
         metric_name                = "${var.name}-CloudFront-WAF-AWS-${rule.key}"
         sampled_requests_enabled   = true
       }
+    }
+  }
+
+  rule {
+    name     = "RateLimitPerIP"
+    priority = 3
+
+    action {
+      block {}
+    }
+
+    statement {
+      # The Free plan only supports plain per-IP limits over 5 minutes; the 10 questions per minute limit is in app.py.
+      rate_based_statement {
+        limit                 = var.waf_requests_per_5_minutes
+        evaluation_window_sec = 300
+        aggregate_key_type    = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.name}-CloudFront-WAF-RateLimitPerIP"
+      sampled_requests_enabled   = true
     }
   }
 }

@@ -88,6 +88,22 @@ variable "dynamodb_table_arns" {
   nullable    = false
 }
 
+variable "dynamodb_actions" {
+  description = "DynamoDB actions allowed on dynamodb_table_arns."
+  type        = list(string)
+  default = [
+    "dynamodb:GetItem",
+    "dynamodb:BatchGetItem",
+    "dynamodb:Query",
+    "dynamodb:Scan",
+    "dynamodb:PutItem",
+    "dynamodb:UpdateItem",
+    "dynamodb:DeleteItem",
+    "dynamodb:BatchWriteItem",
+  ]
+  nullable = false
+}
+
 variable "enable_s3_lambda_access" {
   description = "Grant scoped S3 object access."
   type        = bool
@@ -155,4 +171,10 @@ variable "create_function_url" {
   description = "Whether to create a Lambda function URL."
   type        = bool
   default     = false
+}
+
+variable "reserved_concurrent_executions" {
+  description = "Maximum concurrent executions for the function. -1 means no limit."
+  type        = number
+  default     = -1
 }

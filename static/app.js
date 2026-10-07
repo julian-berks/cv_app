@@ -128,7 +128,12 @@ createApp({
 
                 if (!res.ok) {
                     // FastAPI validation errors return detail as a list, so only show string messages.
-                    throw new Error(typeof data.detail === 'string' ? data.detail : `Request failed (${res.status})`);
+                    if (typeof data.detail === 'string') throw new Error(data.detail);
+                    // WAF blocks over-limit IPs with a 403 that has no JSON body.
+                    if (res.status === 403) {
+                        throw new Error("You're asking questions too quickly. Please wait a minute and try again.");
+                    }
+                    throw new Error(`Request failed (${res.status})`);
                 }
                 this.messages.push({ role: 'bot', text: data.answer });
             } catch (e) {
