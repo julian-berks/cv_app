@@ -7,6 +7,7 @@
 Dockerfile
 push
 README.md
+terraform/
 
 # Python
 __pycache__/
