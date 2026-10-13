@@ -61,7 +61,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
       priority = rule.value
 
       override_action {
-        count {}
+        none {}
       }
 
       statement {

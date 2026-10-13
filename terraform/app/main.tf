@@ -30,12 +30,15 @@ module "function" {
   cloudwatch_logs_retention_in_days = 7
   bedrock_resources                  = [
 				"arn:aws:bedrock:${data.aws_region.current.region}::foundation-model/${var.model_id}",
-				"arn:aws:bedrock:${data.aws_region.current.region}:594542138399:knowledge-base/${module.knowledge_base.knowledge_base_id}"
+				"arn:aws:bedrock:${data.aws_region.current.region}:594542138399:knowledge-base/${module.knowledge_base.knowledge_base_id}",
+				aws_bedrock_guardrail.cv.guardrail_arn
 			]
 
   environment = {
     KNOWLEDGE_BASE_ID       = module.knowledge_base.knowledge_base_id
     MODEL_ID                = var.model_id
+    GUARDRAIL_ID            = aws_bedrock_guardrail.cv.guardrail_id
+    GUARDRAIL_VERSION       = aws_bedrock_guardrail_version.cv.version
     DYNAMODB_TABLE          = aws_dynamodb_table.questions.name
     RETENTION_DAYS          = tostring(var.question_retention_days)
     ALLOWED_ORIGIN          = "https://${var.domain_name}"

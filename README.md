@@ -65,10 +65,13 @@ curl -X POST https://cv.julianberks.com/ask \
 | `DYNAMODB_TABLE` | none (optional) | DynamoDB table that stores each question, timestamp and visitor IP; set by Terraform. If unset, questions aren't recorded |
 | `RETENTION_DAYS` | `30` | How many days a recorded question is kept before DynamoDB deletes it; set by Terraform from the `question_retention_days` variable |
 | `ALLOWED_ORIGIN` | none (optional) | Origin that `/ask` accepts, such as `https://cv.julianberks.com`; set by Terraform from `domain_name`. If unset, the origin check is skipped, which is what you want when running locally |
+| `GUARDRAIL_ID` | none (optional) | Bedrock Guardrail applied to each question (prompt-attack, topic and content filters); set by Terraform. If unset, no guardrail is used |
+| `GUARDRAIL_VERSION` | `DRAFT` | Guardrail version; set by Terraform |
+| `RETRIEVAL_RESULTS` | `20` | Number of CV chunks retrieved from the Knowledge Base for each question |
 | `RATE_LIMIT_TABLE` | none (optional) | DynamoDB table holding the per-IP question counters; set by Terraform. If unset, the per-IP limit is skipped |
 | `RATE_LIMIT_PER_MINUTE` | `10` | Questions one IP can ask per minute; set by Terraform from `ask_rate_limit_per_minute` |
 
-The Lambda execution role needs `bedrock:Retrieve` on the Knowledge Base, `bedrock:InvokeModel` on the model, `dynamodb:PutItem` on the questions table and `dynamodb:UpdateItem` on the rate-limit table. Terraform grants all of these.
+The Lambda execution role needs `bedrock:Retrieve` on the Knowledge Base, `bedrock:InvokeModel` on the model, `bedrock:ApplyGuardrail` on the guardrail, `dynamodb:PutItem` on the questions table and `dynamodb:UpdateItem` on the rate-limit table. Terraform grants all of these.
 
 ## Recorded questions
 

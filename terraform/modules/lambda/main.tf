@@ -53,7 +53,7 @@ dynamic "statement" {
     content {
       sid       = "BedrockAccess"
       effect    = "Allow"
-      actions   = ["bedrock:Retrieve", "bedrock:InvokeModel"]
+      actions   = ["bedrock:Retrieve", "bedrock:InvokeModel", "bedrock:ApplyGuardrail"]
       resources = var.bedrock_resources
     }
   }
