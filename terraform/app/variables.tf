@@ -5,12 +5,6 @@ variable "name" {
    description = "Name of the CV application"
 }
 
-variable "container_deployed" {
-   type = bool
-   default = true
-   description = "Flag to indicate if the container has been deployed"
-}     
-
 variable "tags" {
    type = map(string)
    default = {}

@@ -140,7 +140,7 @@ terraform/
     dynamodb.tf           Questions and rate-limit tables
     guardrail.tf          Bedrock Guardrail and its pinned version
     cloudfront.tf         ACM, CloudFront, WAF, OAC, Lambda permissions
-    variables.tf          name, region, domain_name, model_id, question_retention_days, ask_rate_limit_per_minute, waf_requests_per_5_minutes, lambda_reserved_concurrency, container_deployed, tags
+    variables.tf          name, region, domain_name, model_id, question_retention_days, ask_rate_limit_per_minute, waf_requests_per_5_minutes, lambda_reserved_concurrency,  tags
     outputs.tf            ACM validation records, CloudFront domain name
   modules/
     ecr/                  Container image repository
@@ -149,7 +149,6 @@ terraform/
     ecr-dummy-image/      Seeds a placeholder image (currently unused)
 ```
 
-The `container_deployed` variable gates the Lambda, ACM certificate, and CloudFront resources, so the ECR repository can be created and an image pushed before the rest. The `aws.us_east_1` provider alias is used for ACM and WAF, which CloudFront requires in `us-east-1`.
 
 ## Prompt hardening
 
@@ -180,7 +179,7 @@ flowchart LR
     end
 ```
 
-1. **First apply.** Create the ECR repository, push an image, then apply with `container_deployed = true` to create the Lambda, certificate, and distribution.
+1. **First apply.** Create the ECR repository, push an image, then apply with ` = true` to create the Lambda, certificate, and distribution.
 2. **Certificate validation.** Apply creates the ACM certificate, which stays pending until you add the validation CNAME from the `acm_dns_validation_records` output to your DNS provider.
 3. **DNS.** Point `cv.julianberks.com` at the `cloudfront_domain_name` output.
 4. **Code releases.** Run the `push` script, then `aws lambda update-function-code` with the new image. Dependency changes, such as the `boto3` pin, only take effect once the image is rebuilt and the function updated. Terraform ignores changes to `image_uri`, so code releases never cause Terraform drift.

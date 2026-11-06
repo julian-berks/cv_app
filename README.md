@@ -2,7 +2,7 @@
 
 A web page about Julian's CV. It has a home page, a chat tool for asking questions about the CV, and an About page that shows the project's architecture documentation. Answers come from an Amazon Bedrock Knowledge Base and model. The app is a FastAPI service running in a Docker container on AWS Lambda, served at `https://cv.julianberks.com` through CloudFront.
 
-See [docs/architecture.md](docs/architecture.md) for the AWS architecture diagram and a full component breakdown.
+See [Container/docs/architecture.md](Container/docs/architecture.md) for the AWS architecture diagram and a full component breakdown.
 
 ## How it works
 
@@ -18,14 +18,14 @@ Each question is answered on its own; earlier messages in the chat aren't sent t
 
 | File | Purpose |
 | --- | --- |
-| `app.py` | FastAPI app, Bedrock calls and the Lambda handler (via Mangum) |
-| `static/index.html` | Page layout and styles, the menu, home text, chat view and About view |
-| `static/app.js` | Vue 3 app that switches views, sends questions, shows answers and renders the About page |
-| `requirements.txt` | Python dependencies |
-| `Dockerfile` | Lambda container image based on `public.ecr.aws/lambda/python:3.12` |
-| `push` | Builds the image and pushes it to ECR |
-| `terraform/` | Infrastructure: ECR, Lambda, Bedrock Knowledge Base, CloudFront, ACM and WAF |
-| `docs/architecture.md` | Architecture diagram and component documentation |
+| `Container/app.py` | FastAPI app, Bedrock calls and the Lambda handler (via Mangum) |
+| `Container/static/` | Page layout, styles and Vue 3 app |
+| `Container/requirements.txt` | Python dependencies |
+| `Container/Dockerfile` | Lambda container image definition |
+| `Container/push` | Builds and pushes the Lambda image to ECR; Terraform runs it when container files change |
+| `rag_data/` | Source documents uploaded to the Bedrock Knowledge Base |
+| `terraform/` | ECR, Lambda, S3, Bedrock, DynamoDB, CloudFront, ACM and WAF infrastructure |
+| `Container/docs/architecture.md` | Architecture diagram and component documentation |
 
 Vue 3 is loaded from the unpkg CDN, so there's no front-end build step. The About page also loads `marked`, `DOMPurify` and `mermaid` from unpkg, only when it's first opened, so it needs internet access.
 
@@ -100,6 +100,7 @@ aws dynamodb scan --table-name julian-cv-questions --region eu-west-2
 Running locally calls the real Bedrock services, so you need AWS credentials with the permissions above and the Knowledge Base ID.
 
 ```sh
+cd Container
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt uvicorn
@@ -108,9 +109,32 @@ AWS_DEFAULT_REGION=eu-west-2 KNOWLEDGE_BASE_ID=<knowledge-base-id> uvicorn app:a
 
 Then open http://127.0.0.1:8000/.
 
-## Infrastructure
+## Infrastructure and deployment
 
-Terraform in `terraform/app` creates the AWS resources. State is stored in an S3 bucket in `eu-west-2`.
+Terraform in `terraform/app` provisions the application and its AWS dependencies. It creates the ECR repository, builds and pushes the Lambda container, uploads the files in `rag_data/` to S3, creates and syncs a managed Bedrock Knowledge Base, and configures the Lambda function, DynamoDB tables, guardrail, CloudFront distribution, ACM certificate and WAF. Terraform state is stored in the `594542138399-tfstate` S3 bucket in `eu-west-2`; that bucket must exist before initialization.
+
+Before applying, make sure:
+
+- Terraform 1.11 or later is installed.
+- AWS credentials are configured for the account used by this deployment and can create the resources in the Terraform configuration.
+- Docker and the AWS CLI are installed and available to Terraform. Terraform runs `Container/push` locally to authenticate to ECR and build/push the image.
+- The AWS account can use the configured Bedrock model in `eu-west-2`.
+
+The app's default Terraform inputs are:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `name` | `julian-cv` | Prefix used to name application resources |
+| `region` | `eu-west-2` | Region for the application resources |
+| `domain_name` | `cv.julianberks.com` | Public application domain |
+| `model_id` | `amazon.nova-micro-v1:0` | Bedrock model used to answer questions |
+| `lambda_reserved_concurrency` | `5` | Maximum concurrent Lambda executions; use `-1` for no limit |
+| `ask_rate_limit_per_minute` | `10` | Per-IP question limit enforced by the application |
+| `waf_requests_per_5_minutes` | `100` | Per-IP request limit enforced by WAF |
+| `question_retention_days` | `30` | DynamoDB retention period for recorded questions and visitor IPs |
+| `tags` | `{}` | Tags applied to resources |
+
+Initialize and apply the configuration:
 
 ```sh
 cd terraform/app
@@ -118,30 +142,17 @@ terraform init
 terraform apply
 ```
 
-The `container_deployed` variable (default `true`) controls the Lambda function, ACM certificate and CloudFront distribution. On a fresh account, apply with `-var container_deployed=false` to create the ECR repository first, push an image, then apply again with the default.
+The container build runs when files under `Container/` change. Terraform uploads all files under `rag_data/` and starts a Knowledge Base ingestion job when those source files change. Run `terraform apply` after changing infrastructure, application code, or Knowledge Base source documents; no separate image push or Lambda update command is needed.
 
-DNS for `cv.julianberks.com` is managed outside Terraform, so two manual steps are needed:
-
-1. Create the certificate validation record from the `acm_dns_validation_records` output.
-2. Point `cv.julianberks.com` at the `cloudfront_domain_name` output.
-
-The Lambda function URL uses `AWS_IAM` authorization and can be invoked only through CloudFront.
-
-## Deploying code
-
-Log in to ECR, then run the push script:
+DNS for the application is managed outside Terraform. The ACM certificate and CloudFront WAF are created in `us-east-1`; the other application resources use the configured `region`. To validate the certificate before the full apply waits for DNS, first create it and retrieve its DNS validation records:
 
 ```sh
-aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 594542138399.dkr.ecr.eu-west-2.amazonaws.com
-sh push
+terraform apply -target=aws_acm_certificate.cv
+terraform output -json acm_dns_validation_records
 ```
 
-Then point the Lambda function at the new image:
+Create the returned CNAME record(s) with your DNS provider, then run `terraform apply` to finish creating CloudFront and the remaining resources. Once the apply completes, point the application domain at the `cloudfront_domain_name` output. Terraform does not manage either DNS change.
 
-```sh
-aws lambda update-function-code --function-name julian-cv-lambda-function --image-uri 594542138399.dkr.ecr.eu-west-2.amazonaws.com/julian-cv-ecr:latest
-```
-
-Terraform ignores changes to the function's image, so code releases don't need a Terraform apply. The image also contains `docs/architecture.md`, so documentation changes need a new image too.
+The Lambda function URL uses `AWS_IAM` authorization and can be invoked only through CloudFront. The ECR push script currently authenticates to the `594542138399` ECR registry in `eu-west-2`; keep that registry aligned with the deployment account and region.
 
 The page uses relative paths, so it works at the root of the CloudFront domain. If you serve it under a path prefix, open the URL with a trailing slash.

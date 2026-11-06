@@ -164,7 +164,7 @@ resource "aws_lambda_function" "this" {
     for_each = local.in_vpc ? [1] : []
     content {
       subnet_ids         = var.subnet_ids
-      security_group_ids = concat(var.create_lambda_sg_group ? [aws_security_group.this[0].id] : [], var.additional_security_group_ids)
+      security_group_ids = concat(var.create_lambda_sg_group ? [aws_security_group.this.id] : [], var.additional_security_group_ids)
     }
   }
 

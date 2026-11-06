@@ -4,7 +4,6 @@ provider "aws" {
 }
 
 resource "aws_acm_certificate" "cv" {
-  count             = var.container_deployed ? 1 : 0
   provider          = aws.us_east_1
   domain_name       = var.domain_name
   validation_method = "DNS"
@@ -16,16 +15,14 @@ resource "aws_acm_certificate" "cv" {
 }
 
 resource "aws_acm_certificate_validation" "cv" {
-  count           = var.container_deployed ? 1 : 0
   provider        = aws.us_east_1
-  certificate_arn = aws_acm_certificate.cv[0].arn
+  certificate_arn = aws_acm_certificate.cv.arn
   validation_record_fqdns = [
-    for option in aws_acm_certificate.cv[0].domain_validation_options : option.resource_record_name
+    for option in aws_acm_certificate.cv.domain_validation_options : option.resource_record_name
   ]
 }
 
 resource "aws_cloudfront_origin_access_control" "lambda" {
-  count                             = var.container_deployed ? 1 : 0
   name                              = "${var.name}-lambda-oac"
   description                       = "Allow CloudFront to invoke the CV Lambda URL."
   origin_access_control_origin_type = "lambda"
@@ -105,7 +102,6 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 }
 
 resource "aws_cloudfront_distribution" "cv" {
-  count           = var.container_deployed ? 1 : 0
   enabled         = true
   is_ipv6_enabled = true
   comment         = "${var.name} CV application"
@@ -115,9 +111,9 @@ resource "aws_cloudfront_distribution" "cv" {
   web_acl_id      = aws_wafv2_web_acl.cloudfront.arn
 
   origin {
-    domain_name              = trimsuffix(trimprefix(module.function[0].function_url, "https://"), "/")
+    domain_name              = trimsuffix(trimprefix(module.function.function_url, "https://"), "/")
     origin_id                = "${var.name}-lambda-function-url"
-    origin_access_control_id = aws_cloudfront_origin_access_control.lambda[0].id
+    origin_access_control_id = aws_cloudfront_origin_access_control.lambda.id
 
     custom_origin_config {
       http_port              = 80
@@ -144,7 +140,7 @@ resource "aws_cloudfront_distribution" "cv" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.cv[0].certificate_arn
+    acm_certificate_arn      = aws_acm_certificate_validation.cv.certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
@@ -153,22 +149,20 @@ resource "aws_cloudfront_distribution" "cv" {
 }
 
 resource "aws_lambda_permission" "cloudfront_url" {
-  count                  = var.container_deployed ? 1 : 0
   statement_id           = "AllowCloudFrontFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
-  function_name          = module.function[0].function_name
+  function_name          = module.function.function_name
   principal              = "cloudfront.amazonaws.com"
-  source_arn             = aws_cloudfront_distribution.cv[0].arn
+  source_arn             = aws_cloudfront_distribution.cv.arn
   function_url_auth_type = "AWS_IAM"
 }
 
 resource "aws_lambda_permission" "cloudfront_invoke" {
-  count                    = var.container_deployed ? 1 : 0
   statement_id             = "AllowCloudFrontInvokeFunctionUrl"
   action                   = "lambda:InvokeFunction"
-  function_name            = module.function[0].function_name
+  function_name            = module.function.function_name
   principal                = "cloudfront.amazonaws.com"
-  source_arn               = aws_cloudfront_distribution.cv[0].arn
+  source_arn               = aws_cloudfront_distribution.cv.arn
   invoked_via_function_url = true
 }
 
