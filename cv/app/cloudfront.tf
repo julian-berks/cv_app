@@ -166,3 +166,24 @@ resource "aws_lambda_permission" "cloudfront_invoke" {
   invoked_via_function_url = true
 }
 
+
+# Create CloudFront plan subscription based on the specified plan tier (FREE is fine for the CV app)
+# No current TF option for this - needs AWSCLI 2.36.12 ->
+resource "terraform_data" "cloudfront_free_plan" {
+  triggers_replace = [
+    aws_cloudfront_distribution.cv.arn,
+    aws_wafv2_web_acl.cloudfront.arn,
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws pricing-plan-manager create-subscription \
+        --plan-family CloudFront \
+        --plan-tier ${var.plan_tier} \
+        --usage-level DEFAULT \
+        --resource-arns \
+          ${aws_cloudfront_distribution.cv.arn} \
+          ${aws_wafv2_web_acl.cloudfront.arn}
+    EOT
+  }
+}

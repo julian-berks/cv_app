@@ -19,6 +19,7 @@ env/
 
 
 # Terraform
-*.tfstate
-*.tfstate.*
-.terraform*
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform*
+**/.terragrunt-cache

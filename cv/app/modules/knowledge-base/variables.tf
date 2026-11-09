@@ -12,5 +12,5 @@ variable "rag_bucket_name" {
 variable "filepath" {
   type        = string
   description = "File path within the RAG S3 bucket"
-  default = "*"
+  default     = "*"
 }

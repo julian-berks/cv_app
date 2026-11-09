@@ -1,3 +1,6 @@
+# Reusable knowledge-base module for CV application.
+# Terraform owns the infra; CI owns content rollouts -> lifecycle ignores content changes.
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -21,46 +24,46 @@ resource "aws_bedrockagent_knowledge_base" "kb" {
 data "aws_iam_policy_document" "knowledgebase_access" {
 
   statement {
-            sid =  "CloudWatchWritePermissionStatement"
-            effect = "Allow"
-            actions = [
-                "cloudwatch:PutMetricData"
-            ]
-            resources =  ["*"]
-            condition   {
-                test = "StringEquals"
-                variable = "cloudwatch:namespace"
-                values = ["AWS/Bedrock/KnowledgeBases"]
-            }
-        }
+    sid    = "CloudWatchWritePermissionStatement"
+    effect = "Allow"
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["AWS/Bedrock/KnowledgeBases"]
+    }
+  }
 
-    statement {
-            sid =  "S3ListBucketStatement"
-            effect = "Allow"
-            actions = [
-                "s3:ListBucket"
-            ]
-            resources =  ["arn:aws:s3:::${var.rag_bucket_name}"]
-            condition   {
-                test = "StringEquals"
-                variable = "aws:ResourceAccount"
-                values = [data.aws_caller_identity.current.account_id]
-            }
-        }
+  statement {
+    sid    = "S3ListBucketStatement"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket"
+    ]
+    resources = ["arn:aws:s3:::${var.rag_bucket_name}"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
 
-            statement {
-            sid =  "S3GetObjectStatement"
-            effect = "Allow"
-            actions = [
-                "s3:GetObject"
-            ]
-            resources =  ["arn:aws:s3:::${var.rag_bucket_name}/${var.filepath}"]
-            condition   {
-                test = "StringEquals"
-                variable = "aws:ResourceAccount"
-                values = [data.aws_caller_identity.current.account_id]
-            }
-        }
+  statement {
+    sid    = "S3GetObjectStatement"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject"
+    ]
+    resources = ["arn:aws:s3:::${var.rag_bucket_name}/${var.filepath}"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
 }
 
 data "aws_iam_policy_document" "knowledgebaseassume" {
@@ -72,24 +75,24 @@ data "aws_iam_policy_document" "knowledgebaseassume" {
       identifiers = ["bedrock.amazonaws.com"]
     }
     condition {
-                test = "StringEquals"
-                variable = "aws:SourceAccount"
-                values = [data.aws_caller_identity.current.account_id]
-              }
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
     condition {
-                test = "ArnLike"
-                variable = "aws:SourceArn"
-                values = ["arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:knowledge-base/*"]
-              }
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:knowledge-base/*"]
+    }
   }
 }
 
 
 resource "aws_iam_role" "kbrole" {
   name               = "${var.knowledge_base_name}_role"
-  assume_role_policy = data.aws_iam_policy_document.knowledgebaseassume.json    
+  assume_role_policy = data.aws_iam_policy_document.knowledgebaseassume.json
 }
- 
+
 resource "aws_iam_role_policy" "access" {
   name   = "${var.knowledge_base_name}-access"
   role   = aws_iam_role.kbrole.id
@@ -100,6 +103,7 @@ resource "aws_iam_role_policy" "access" {
 
 
 resource "aws_bedrockagent_data_source" "s3datasource" {
+  depends_on        = [aws_iam_role_policy.access]
   knowledge_base_id = aws_bedrockagent_knowledge_base.kb.id
   name              = "${var.knowledge_base_name}-s3-managed"
 

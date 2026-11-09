@@ -1,5 +1,6 @@
 # Reusable container-image Lambda module for HEARTBEAT.
 # Terraform owns the infra; CI owns image rollouts -> lifecycle ignores image_uri.
+# MOdified for CV application but needs a bit of a rewrite to better form a reusable module.
 
 locals {
   function_name = "${var.name}-lambda-function"
@@ -41,14 +42,14 @@ data "aws_iam_policy_document" "access" {
   dynamic "statement" {
     for_each = length(var.dynamodb_table_arns) > 0 ? [1] : []
     content {
-      sid    = "DynamoDBAccess"
-      effect = "Allow"
-      actions = var.dynamodb_actions
+      sid       = "DynamoDBAccess"
+      effect    = "Allow"
+      actions   = var.dynamodb_actions
       resources = var.dynamodb_table_arns
     }
   }
 
-dynamic "statement" {
+  dynamic "statement" {
     for_each = length(var.bedrock_resources) > 0 ? [1] : []
     content {
       sid       = "BedrockAccess"
