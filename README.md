@@ -37,7 +37,6 @@ Vue 3 is loaded from the unpkg CDN, so there's no front-end build step. The Abou
 | `GET` | `/` | Home page, with the chat tool and project documentation behind the menu |
 | `GET` | `/architecture.md` | Architecture documentation shown on the About page |
 | `POST` | `/ask` | Body `{"question": "..."}` returns `{"answer": "..."}` |
-| `GET` | `/s3` | Fixed test question about S3 experience |
 | `GET` | `/static/*` | Page assets |
 
 `/ask` rejects blank questions and questions over 1000 characters with a `422`, and returns a `502` if Bedrock fails.

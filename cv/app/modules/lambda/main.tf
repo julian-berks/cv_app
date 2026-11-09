@@ -170,7 +170,8 @@ resource "aws_lambda_function" "this" {
   depends_on = [
     aws_iam_role_policy_attachment.basic,
     aws_cloudwatch_log_group.this,
-    aws_iam_role_policy.access
+    aws_iam_role_policy.access,
+    aws_iam_role_policy.additional
   ]
 
   tags = merge(var.tags, { Name = local.function_name })

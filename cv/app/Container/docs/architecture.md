@@ -132,7 +132,7 @@ sequenceDiagram
 | [Dockerfile](../Dockerfile) | Builds on `public.ecr.aws/lambda/python:3.12`; entry point `app.handler` |
 | [push](../push) | Builds a `linux/amd64` image and pushes it to ECR |
 
-`/ask` validates the question (1 to 1000 characters after trimming) and returns `422` for invalid input or `502` if a Bedrock call fails. The `/s3` route asks a fixed question about S3 experience and is useful as a smoke test.
+`/ask` validates the question (1 to 1000 characters after trimming) and returns `422` for invalid input or `502` if a Bedrock call fails.
 
 ## Terraform layout
 

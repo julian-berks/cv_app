@@ -7,12 +7,23 @@ repository="${container##*/}"
 aws ecr get-login-password --region eu-west-2 |
   docker login --username AWS --password-stdin 594542138399.dkr.ecr.eu-west-2.amazonaws.com
 
-if aws ecr describe-images \
+if lookup_output=$(aws ecr describe-images \
   --repository-name "$repository" \
   --image-ids "imageTag=$tag" \
-  --region eu-west-2 >/dev/null 2>&1; then
+  --region eu-west-2 2>&1); then
   echo "Image ${container}:${tag} already exists; skipping build and push."
   exit 0
+else
+  lookup_status=$?
+  case "$lookup_output" in
+    *"(ImageNotFoundException)"*)
+      echo "Image ${container}:${tag} does not exist; building and pushing."
+      ;;
+    *)
+      printf '%s\n' "$lookup_output" >&2
+      exit "$lookup_status"
+      ;;
+  esac
 fi
 
 docker build --platform linux/amd64 --provenance=false -t "${container}:${tag}" .

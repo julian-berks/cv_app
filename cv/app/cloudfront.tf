@@ -173,6 +173,7 @@ resource "terraform_data" "cloudfront_free_plan" {
   triggers_replace = [
     aws_cloudfront_distribution.cv.arn,
     aws_wafv2_web_acl.cloudfront.arn,
+    var.plan_tier
   ]
 
   provisioner "local-exec" {
