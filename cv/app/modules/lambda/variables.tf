@@ -4,7 +4,7 @@ variable "name" {
 }
 
 variable "image_uri" {
-  description = "ECR image URI (repo_url:tag). Terraform provisions against this; CI updates code out-of-band."
+  description = "ECR image URI (repo_url:tag) managed by Terraform."
   type        = string
 }
 
@@ -72,13 +72,6 @@ variable "additional_security_group_ids" {
   description = "Extra security group ids to attach in VPC mode."
   type        = list(string)
   default     = []
-}
-
-# ---- Least-privilege feature flags ------------------------------------------
-variable "enable_dynamodb_access" {
-  description = "Grant scoped DynamoDB access."
-  type        = bool
-  default     = false
 }
 
 variable "dynamodb_table_arns" {

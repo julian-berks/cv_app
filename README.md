@@ -146,7 +146,7 @@ terragrunt plan
 terragrunt apply
 ```
 
-When files under `cv/app/Container/` change, Terraform rebuilds and pushes the Lambda image during apply. Files with `.doc`, `.docx` or `.txt` extensions under `cv/app/rag_data/` are uploaded to S3 and trigger a Knowledge Base ingestion job when changed. Run `terragrunt plan` and `terragrunt apply` from `cv/` after changing infrastructure, application code or source documents; no separate image-push or Lambda-update command is needed.
+When files under `cv/app/Container/` change, Terraform hashes their paths and contents, builds and pushes an image with that digest as an immutable ECR tag, then updates Lambda to use the new image. Files with `.doc`, `.docx` or `.txt` extensions under `cv/app/rag_data/` are uploaded to S3 and trigger a Knowledge Base ingestion job when changed. Run `terragrunt plan` and `terragrunt apply` from `cv/` after changing infrastructure, application code or source documents; no separate image-push or Lambda-update command is needed.
 
 DNS for the application is managed outside Terraform. The ACM certificate and CloudFront WAF are created in `us-east-1`; the other application resources and the state bucket use `eu-west-2`. For the initial deployment, create the certificate and retrieve its DNS validation records:
 

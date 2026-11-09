@@ -112,7 +112,7 @@ sequenceDiagram
 | Lambda function URL | HTTPS endpoint for the function, with `AWS_IAM` authorization | [modules/lambda](../../modules/lambda/main.tf) |
 | IAM execution role | Basic Lambda logging, scoped Bedrock permissions, and `PutItem`/`UpdateItem` access to the DynamoDB tables | [modules/lambda](../../modules/lambda/main.tf) |
 | CloudWatch log group | Function logs, 7-day retention | [modules/lambda](../../modules/lambda/main.tf) |
-| ECR repository | Stores Lambda container images, scans on push, and keeps the latest 7 images | [modules/ecr](../../modules/ecr/main.tf) |
+| ECR repository | Stores immutable, source-digest-tagged Lambda images, scans on push, and keeps the latest 7 images | [modules/ecr](../../modules/ecr/main.tf) |
 | Bedrock Guardrail | Applies prompt-attack, topic, insults, and hate filters. A pinned version is passed to the app | [guardrail.tf](../../guardrail.tf) |
 | Bedrock Knowledge Base | Managed Knowledge Base used for retrieval | [modules/knowledge-base](../../modules/knowledge-base/main.tf) |
 | Bedrock data source | Managed S3 connector that ingests supported CV documents with smart parsing | [modules/knowledge-base](../../modules/knowledge-base/main.tf) |
@@ -203,7 +203,7 @@ terragrunt output -json acm_dns_validation_records
 
 Create the returned CNAME record with your DNS provider, then run `terragrunt apply` to create the remaining resources. Afterward, point `cv.julianberks.com` to the `cloudfront_domain_name` output. DNS remains outside Terraform.
 
-Subsequent applies rebuild and push the Lambda image when files in `Container/` change, upload supported source files from `rag_data/`, and start Knowledge Base ingestion when source files or the Knowledge Base/data source change. No separate `docker push` or `aws lambda update-function-code` step is required.
+Subsequent applies hash the paths and contents under `Container/`, build and push the image using that digest as an immutable ECR tag, then update Lambda to the new image URI. They also upload supported source files from `rag_data/` and start Knowledge Base ingestion when source files or the Knowledge Base/data source change. No separate `docker push` or `aws lambda update-function-code` step is required.
 
 ## Security notes
 

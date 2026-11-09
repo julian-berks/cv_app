@@ -63,13 +63,6 @@ variable "question_retention_days" {
   }
 }
 
-
-variable "base_filepath" {
-  type        = string
-  description = "Base filesystem path for the project"
-}
-
-
 variable "plan_tier" {
   type        = string
   default     = "FREE"

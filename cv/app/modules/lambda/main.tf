@@ -1,6 +1,4 @@
-# Reusable container-image Lambda module for HEARTBEAT.
-# Terraform owns the infra; CI owns image rollouts -> lifecycle ignores image_uri.
-# MOdified for CV application but needs a bit of a rewrite to better form a reusable module.
+# Reusable container-image Lambda module for the CV application.
 
 locals {
   function_name = "${var.name}-lambda-function"
@@ -172,11 +170,8 @@ resource "aws_lambda_function" "this" {
   depends_on = [
     aws_iam_role_policy_attachment.basic,
     aws_cloudwatch_log_group.this,
+    aws_iam_role_policy.access
   ]
-
-  lifecycle {
-    ignore_changes = [image_uri]
-  }
 
   tags = merge(var.tags, { Name = local.function_name })
 }

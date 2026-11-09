@@ -29,6 +29,5 @@ inputs = {
     model_id                = "amazon.nova-micro-v1:0"
     domain_name             = "cv.julianberks.com"
     question_retention_days =  5
-    base_filepath           = "${get_terragrunt_dir()}"
     rag_bucket_name         = "594542138399-rag-bucket"
     }

@@ -1,5 +1,19 @@
+set -euo pipefail
+
 container=$1
-aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 594542138399.dkr.ecr.eu-west-2.amazonaws.com
-docker build --platform linux/amd64 --provenance=false -t julian-cv-ecr .
-docker tag julian-cv-ecr:latest ${container}:latest
-docker push ${container}:latest
+tag=$2
+repository="${container##*/}"
+
+aws ecr get-login-password --region eu-west-2 |
+  docker login --username AWS --password-stdin 594542138399.dkr.ecr.eu-west-2.amazonaws.com
+
+if aws ecr describe-images \
+  --repository-name "$repository" \
+  --image-ids "imageTag=$tag" \
+  --region eu-west-2 >/dev/null 2>&1; then
+  echo "Image ${container}:${tag} already exists; skipping build and push."
+  exit 0
+fi
+
+docker build --platform linux/amd64 --provenance=false -t "${container}:${tag}" .
+docker push "${container}:${tag}"

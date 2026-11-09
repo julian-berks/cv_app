@@ -214,17 +214,4 @@ def ask(request: AskRequest, http_request: Request):
     return {"answer": answer}
 
 
-@app.get("/s3")
-async def s3_question():
-    print("Starting S3 question retrieval")
-    answer = answer_question("What is Julian's experience with S3")
-    print(answer)
-
-    return {
-        "statusCode": 200,
-        "body": answer,
-    }
-
-
-
 handler = Mangum(app, lifespan="off")

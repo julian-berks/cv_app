@@ -1,26 +1,25 @@
 data "aws_region" "current" {}
 
 locals {
-  #docs_folder     = "${var.base_filepath}/../rag_data"
   docs_folder     = "./rag_data"
   rag_bucket_name = var.rag_bucket_name
 
-  # Generate an MD5 of the app folder to trigger container rebuilds when any file changes
- app_folder = "./Container"
- files      = sort(fileset(local.app_folder, "**"))
- app_md5 = md5(join("", [
-    for f in local.files : filemd5("${local.app_folder}/${f}")
+  app_folder = "./Container"
+  app_digest = sha256(join("\n", [
+    for f in sort(fileset(local.app_folder, "**")) :
+    "${f}:${filesha256("${local.app_folder}/${f}")}"
   ]))
+  image_tag = "sha-${local.app_digest}"
 
-  # Generate a list of files in the docs folder that match the specified extensions (& exclude terraform files)
- docs_files = sort([
+  # Include only supported source documents in the Knowledge Base.
+  docs_files = sort([
     for f in fileset(local.docs_folder, "**") : f
     if can(regex("(?i)\\.(doc|docx|txt)$", f))
     && !can(regex("(^|/)\\.terraform(/|$)", f))
   ])
 
- # Compute MD5 hash of all files in the Container folder to trigger rebuilds when any file changes
- docs_hash = md5(join("", [
+  # Hash document paths and contents to trigger uploads and Knowledge Base ingestion.
+  docs_hash = md5(join("", [
     for f in local.docs_files :
     "${f}:${filemd5("${local.docs_folder}/${f}")}"
   ]))
@@ -28,24 +27,24 @@ locals {
 
 
 module "ecr" {
-  source          = "./modules/ecr"
-  name            = var.name
-  scan_on_push    = true
-  max_image_count = 7
-  tags            = var.tags
+  source               = "./modules/ecr"
+  name                 = var.name
+  scan_on_push         = true
+  image_tag_mutability = "IMMUTABLE"
+  max_image_count      = 7
+  tags                 = var.tags
 }
 
 resource "terraform_data" "build_and_push_image" {
   depends_on       = [module.ecr]
-  triggers_replace = local.app_md5
+  triggers_replace = local.app_digest
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -euo pipefail
-      pwd
       cd ${local.app_folder}
-      ./push ${module.ecr.repository_url}
+      ./push ${module.ecr.repository_url} ${local.image_tag}
     EOT
   }
 }
@@ -54,7 +53,7 @@ module "function" {
   depends_on                        = [terraform_data.build_and_push_image]
   source                            = "./modules/lambda"
   name                              = var.name
-  image_uri                         = "${module.ecr.repository_url}:latest"
+  image_uri                         = "${module.ecr.repository_url}:${local.image_tag}"
   iam_role_name                     = "${var.name}-default_role"
   timeout                           = 30
   memory_size                       = 512
